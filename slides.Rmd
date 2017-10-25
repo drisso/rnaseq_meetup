@@ -1,0 +1,119 @@
+---
+title: "RNA-seq differential expression analysis"
+author: "Davide Risso"
+date: "10/27/2017"
+output:
+  beamer_presentation:
+    toc: no
+    keep_tex: no
+---
+
+## What we will cover
+
+We will cover differential expression analysis of RNA-seq data in R/Bioconductor.
+
+We will start from a matrix of gene-level read counts.
+
+We will cover the two most popular packages, `DESeq2` and `edgeR`.
+
+I will also show you how to deal with unwanted variation using the `RUVSeq` package.
+
+## What we will not cover
+
+I will not talk about the preprocessing of RNA-seq data, i.e., what we do to obtain the gene-level read counts.
+
+These steps are usually done with stand-alone software outside R.
+
+I will not talk about isoform-level analysis and alternative splicing.
+
+We will focus on gene-level differential expression.
+
+## Where to find these slides
+
+\Large
+
+[https://github.com/drisso/rnaseq_meetup](github.com/drisso/rnaseq_meetup)
+
+## Where to find additional resources
+
+- The edgeR user guide [https://bioconductor.org/packages/edgeR](bioconductor.org/packages/edgeR)
+- The DESeq2 vignette  [https://bioconductor.org/packages/DESeq2](bioconductor.org/packages/DESeq2)
+- The F1000 Research Bioconductor gateway [https://f1000research.com/gateways/bioconductor](f1000research.com/gateways/bioconductor)
+-  [https://support.bioconductor.org](support.bioconductor.org)
+
+## From RNA to gene-level read counts
+
+\centering
+\includegraphics[width=.6\linewidth]{central_dogma}
+
+## From RNA to gene-level read counts
+
+\centering
+\includegraphics[width=\linewidth]{rna-seq.jpg}
+
+## From RNA to gene-level read counts
+
+\tiny
+```{r, echo=FALSE, results='markup'}
+data_dir <- "~/git/peixoto2015_tutorial/Peixoto_Input_for_Additional_file_1/"
+fc <- read.table(paste0(data_dir, "Peixoto_CC_FC_RT.txt"), row.names=1, header=TRUE)
+negControls <- read.table(paste0(data_dir, "Peixoto_NegativeControls.txt"), sep='\t', header=TRUE, as.is=TRUE)
+positive <- read.table(paste0(data_dir, "Peixoto_positive_controls.txt"), as.is=TRUE, sep='\t', header=TRUE)
+
+x <- as.factor(rep(c("CC", "FC", "RT"), each=5))
+names(x) <- colnames(fc)
+
+filter <- apply(fc, 1, function(x) length(x[which(x>10)])>5)
+filtered <- as.matrix(fc)[filter,]
+head(filtered)
+```
+
+## The Poisson Model
+
+When statisticians see counts, they immediately think about Simeon Poisson.
+
+\centering
+\includegraphics[width=.7\linewidth]{Simeon_Poisson}
+
+## The Poisson Model
+
+The Poisson distribution naturally arises from binomial calculations, with a large number of trials and a small probability.
+
+It has a rather stringent assumption: **the variance is equal to the mean**!
+
+$$
+Var(Y_{ij}) = \mu_{ij}
+$$
+
+In real datasets the variance is greater than the mean, a condition known as **overdispersion**.
+
+## A real example
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(edgeR)
+y <- DGEList(counts = filtered, group = x)
+y <- calcNormFactors(y)
+design <- model.matrix(~x)
+y <- estimateDisp(y, design)
+meanVarPlot <- plotMeanVar(y, 
+                           show.raw.vars=TRUE, 
+                           show.tagwise.vars=TRUE,
+                           show.binned.common.disp.vars=FALSE,
+                           show.ave.raw.vars=FALSE, 
+                           NBline = TRUE , nbins = 100,
+                           pch = 16, 
+                           xlab ="Mean Expression (Log10 Scale)", 
+                           ylab = "Variance (Log10 Scale)" , 
+                           main = "Mean-Variance Plot" )
+```
+
+## The Negative Binomial Model
+
+A generalization of the Poisson model is the negative binomial, that assumes that the variance is a quadratic function of the mean.
+
+$$
+Var(Y_{ij}) = \mu_{ij} + \phi_j \mu_{ij}^2
+$$
+where $\phi$ is called the **dispersion parameter**.
+
+Both `edgeR` and `DESeq2` assume that the data is distributed as a negative binomial.
