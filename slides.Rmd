@@ -97,7 +97,7 @@ design <- model.matrix(~x)
 y <- estimateDisp(y, design)
 meanVarPlot <- plotMeanVar(y, 
                            show.raw.vars=TRUE, 
-                           show.tagwise.vars=TRUE,
+                           show.tagwise.vars=FALSE,
                            show.binned.common.disp.vars=FALSE,
                            show.ave.raw.vars=FALSE, 
                            NBline = TRUE , nbins = 100,
