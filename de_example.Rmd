@@ -2,7 +2,8 @@
 title: "An example of RNA-seq differential expression analysis"
 author: "Davide Risso"
 date: "10/27/2017"
-output: html_document
+output: BiocStyle::html_document
+bibliography: biblio.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -28,6 +29,7 @@ library(RColorBrewer)
 library(EDASeq)
 library(DESeq2)
 library(RUVSeq)
+library(edgeR)
 ```
 
 # Exploratory Data Analysis
@@ -112,6 +114,14 @@ dds <- estimateSizeFactors(dds)
 dds <- estimateDispersions(dds)
 dds <- nbinomWaldTest(dds)
 ```
+
+To understand how the dispersion is estimated by `DESeq2`, we can plot it against the mean.
+
+```{r disp}
+plotDispEsts(dds)
+```
+
+The genewise estimates of the dispersion are shrunk towards the fitted line. Some gene-wise estimates are flagged as outliers and not shrunk towards the fitted value.
 
 Let's explore the results.
 
@@ -244,3 +254,60 @@ points(res2_ruv[pos, "log2FoldChange"],
        -log10(res2_ruv[pos, "pvalue"]),
        pch=1, col=2)
 ```
+
+# Differential expression with edgeR
+
+Similarly to `DESeq2`, `edgeR` works on a dedicated object, called `DGEList`, that we need to create from our matrix.
+
+```{r edger}
+y <- DGEList(counts = filtered_orig, group = x_orig)
+```
+
+The steps of a typical analysis in `edgeR` are very similar to those of `DESeq2`: calculate the normalization factors, estimate the dispersion parameters, and test for differential expression.
+
+```{r edger2}
+y <- calcNormFactors(y)
+design <- model.matrix(~x_orig + ruv$W)
+y <- estimateDisp(y, design)
+```
+
+`estimateDisp` in this case consist of three steps: it first estimates a common dispersion parameter, then a "trend" capturing the relation between dispersion and mean and finally a "tagwise" dispersion parameter shrinked towards the common trend.
+
+In order to understand how this work, we can plot the mean-variance plot.
+
+```{r meanvar}
+meanVarPlot <- plotMeanVar(y, 
+                           show.raw.vars=TRUE, 
+                           show.tagwise.vars=TRUE,
+                           show.binned.common.disp.vars=FALSE,
+                           show.ave.raw.vars=FALSE, 
+                           NBline = TRUE , nbins = 100,
+                           pch = 16, 
+                           xlab ="Mean Expression (Log10 Scale)", 
+                           ylab = "Variance (Log10 Scale)" , 
+                           main = "Mean-Variance Plot" )
+```
+
+To test for differential expression, we first fit a generalized linear model (GLM) and then test using the likelihood ratio test.
+
+```{r edger3}
+fit <- glmFit(y, design)
+lrt <- glmLRT(fit, coef=2)
+topTags(lrt)
+top <- topTags(lrt, n = Inf)$table
+
+hist(top$PValue)
+
+plot(top$logFC, -log10(top$PValue),
+     xlab = "log2FC", ylab = "-log10(p)", pch=20, col="grey")
+
+de <- which(top$FDR <= 0.1)
+points(top[de, "logFC"],
+       -log10(top[de, "PValue"]),
+       pch=20, col=4)
+pos <- which(rownames(top) %in% c(FCup, FCdown))
+points(top[pos, "logFC"],
+       -log10(top[pos, "PValue"]),
+       pch=1, col=2)
+```
+
