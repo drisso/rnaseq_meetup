@@ -311,3 +311,15 @@ points(top[pos, "logFC"],
        pch=1, col=2)
 ```
 
+We can test contrasts in `edgeR` in the following way. Imagine we want to test the difference between FC and RT.
+
+```{r contrasts_edger}
+colnames(design) <- c("Intercept", "FC", "RT", 
+                      "W1", "W2", "W3", "W4", "W5")
+cont <- makeContrasts(FC - RT, levels = colnames(design))
+cont
+lrt <- glmLRT(fit, contrast = cont)
+topTags(lrt)
+top <- topTags(lrt, n = Inf)$table
+hist(top$PValue)
+```
