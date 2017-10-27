@@ -117,3 +117,16 @@ $$
 where $\phi$ is called the **dispersion parameter**.
 
 Both `edgeR` and `DESeq2` assume that the data is distributed as a negative binomial.
+
+## An example dataset
+
+![](FCdesign.png)
+
+## An example dataset
+
+- C57BL/6J adult male mice (2 months of age). 
+- Five animals per group: fear conditioning (FC), memory retrieval (RT), and controls (CC).
+- Illumina 100bp paired-end reads mapped to the mouse genome (mm9) using GMAP/GSNAP.
+- Ensembl (release 65) gene counts obtained using HTSeq.
+
+
